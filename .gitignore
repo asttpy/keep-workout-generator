@@ -1,0 +1,6 @@
+# 本地 IDE 配置不发布
+.trae/
+
+# 系统杂项
+Thumbs.db
+desktop.ini

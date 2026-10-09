@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Keep 运动数据生成器</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">K</span>
+    <h1>Keep 运动数据生成器</h1>
+  </div>
+  <div class="top-actions">
+    <div class="mode-tabs" role="tablist">
+      <button id="tabSingle" class="tab active" type="button">单条记录</button>
+      <button id="tabBatch" class="tab" type="button">批量生成</button>
+    </div>
+    <button id="themeBtn" class="icon-btn" type="button" title="切换深浅色模式">🌙</button>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ============ 左侧编辑区 ============ -->
+  <aside class="editor">
+
+    <details class="card open" id="secBase">
+      <summary>基础信息</summary>
+      <div class="card-body">
+        <div class="grid2">
+          <label>运动类型
+            <select id="sport">
+              <option value="Running" selected>跑步</option>
+              <option value="Biking">骑行</option>
+              <option value="Other">步行</option>
+            </select>
+          </label>
+          <label>体重（kg）<span class="hint" title="用于自动估算卡路里，仅本地使用，不会包含在导出文件中">?</span>
+            <input id="weight" type="number" value="65" min="30" max="200" step="1">
+          </label>
+        </div>
+        <div class="grid2">
+          <label>平均心率（bpm）<span class="hint" title="留空则导出文件中不包含心率数据">?</span>
+            <input id="avgHr" type="number" value="150" min="60" max="220" step="1">
+          </label>
+          <label>最大心率（bpm）
+            <input id="maxHr" type="number" value="172" min="60" max="230" step="1">
+          </label>
+        </div>
+        <label>卡路里（kcal）<span class="hint" title="留空时按体重与距离自动估算">?</span>
+          <input id="calories" type="number" placeholder="留空自动估算" min="0" step="1">
+        </label>
+      </div>
+    </details>
+
+    <details class="card open" id="secSingle">
+      <summary>单条记录</summary>
+      <div class="card-body">
+        <div class="grid2">
+          <label>开始时间
+            <span class="hint" title="可自由选择过去或未来的时间：提前生成未来某天的数据，等那天过了再导入 Keep，即会正常显示为当天的运动">?</span>
+            <input id="startTime" type="datetime-local">
+            <span class="time-nudge">
+              <button type="button" data-nudge="-1" title="开始时间提前一天">−1天</button>
+              <button type="button" data-nudge="1" title="开始时间推后一天">+1天</button>
+              <button type="button" data-nudge="7" title="开始时间推后一周">+7天</button>
+              <button type="button" data-nudge="0" title="恢复为今天 07:30">今天</button>
+            </span>
+          </label>
+          <label>时长（分钟）
+            <input id="duration" type="number" value="30" min="1" max="360" step="1">
+          </label>
+        </div>
+        <label>距离（公里）
+          <input id="distance" type="number" value="5.0" min="0.1" max="300" step="0.1">
+        </label>
+      </div>
+    </details>
+
+    <details class="card open" id="secTrack">
+      <summary>轨迹</summary>
+      <div class="card-body">
+        <div class="grid2">
+          <label>路线形状
+            <select id="shape">
+              <option value="track" selected>标准 400 米跑道（多圈）</option>
+              <option value="loop">环形</option>
+              <option value="outback">往返</option>
+              <option value="figure8">8 字形</option>
+              <option value="stadium">跑道形</option>
+              <option value="imported">导入 GPX</option>
+            </select>
+          </label>
+          <label>随机种子
+            <span class="seed-row">
+              <input id="seed" type="number" value="42" min="0" step="1">
+              <button id="seedDice" class="mini-btn" type="button" title="随机换一个种子">🎲</button>
+            </span>
+          </label>
+        </div>
+        <div id="trackRow" hidden>
+          <label>跑道朝向 <span class="hint" title="跑道长轴的角度：0° 表示直道为东西走向，逆时针跑">?</span>
+            <input id="trackRot" type="number" value="0" min="0" max="359" step="5">
+          </label>
+        </div>
+        <p class="field-note" id="trackNote" hidden></p>
+        <label id="wiggleRow">路线扰动强度 <span class="hint" title="数值越大，路线边缘越不规则，越接近真实跑步轨迹">?</span>
+          <span class="range-row">
+            <input id="wiggle" type="range" min="0" max="20" value="8" step="1">
+            <span id="wiggleVal" class="range-val">8%</span>
+          </span>
+        </label>
+        <label class="switch-row">
+          <span>海拔起伏 <span class="hint" title="叠加平缓的正弦海拔变化，模拟真实路面的高度波动">?</span></span>
+          <input id="elevation" type="checkbox" checked>
+        </label>
+        <div id="geoRow">
+          <div class="grid2">
+            <label>纬度
+              <input id="lat" type="number" value="32.108221" step="0.000001">
+            </label>
+            <label>经度
+              <input id="lng" type="number" value="118.911572" step="0.000001">
+            </label>
+          </div>
+          <label>坐标来源 <span class="hint" title="Keep 按 GPS 标准（WGS-84）读取轨迹；若坐标复制自高德或百度地图，选择对应来源会自动转换，避免位置偏移几百米">?</span>
+            <select id="crs">
+              <option value="wgs84">WGS-84 · Google 地图 / GPS 设备</option>
+              <option value="gcj02">GCJ-02 · 高德 / 腾讯地图</option>
+              <option value="bd09">BD-09 · 百度地图</option>
+            </select>
+          </label>
+          <label>粘贴坐标或地图分享链接
+            <span class="seed-row">
+              <input id="coordPaste" type="text" placeholder="如 39.9086, 116.3974">
+              <button id="coordParse" class="mini-btn" type="button">解析</button>
+            </span>
+          </label>
+          <p class="field-note">在地图 App 中长按目标位置（如你常去的田径场）即可复制坐标，粘贴后点「解析」；不必追求坐标精度——开启右侧「卫星底图」后，直接拖拽路线对准真实跑道即可。</p>
+        </div>
+        <div id="gpxRow" hidden>
+          <label>选择 GPX 文件
+            <input id="gpxFile" type="file" accept=".gpx">
+          </label>
+          <p class="field-note" id="gpxNote">导入后轨迹按目标距离等比缩放</p>
+        </div>
+      </div>
+    </details>
+
+    <details class="card open" id="secPace">
+      <summary>配速策略 <span class="hint" title="分段策略按时间划分，配速系数为相对平均速度的倍数，系统会自动归一化保证总距离准确">?</span></summary>
+      <div class="card-body">
+        <div class="segmented" id="paceStrategy">
+          <button type="button" data-preset="uniform" class="chip active">匀速</button>
+          <button type="button" data-preset="front" class="chip">前快后慢</button>
+          <button type="button" data-preset="sprint" class="chip">匀速 + 冲刺</button>
+          <button type="button" data-preset="custom" class="chip">自定义</button>
+        </div>
+        <div id="segEditor" hidden>
+          <div class="seg-head"><span>时间占比 %</span><span>配速系数 ×</span><span></span></div>
+          <div id="segRows"></div>
+          <button id="segAdd" class="mini-btn wide" type="button">＋ 添加分段</button>
+        </div>
+      </div>
+    </details>
+
+    <details class="card open" id="secBatch" hidden>
+      <summary>批量规则</summary>
+      <div class="card-body">
+        <div class="grid2">
+          <label>开始日期
+            <input id="bFrom" type="date">
+          </label>
+          <label>结束日期
+            <span class="hint" title="可设为未来日期：提前生成接下来若干天的数据，之后逐日导入 Keep">?</span>
+            <input id="bTo" type="date">
+          </label>
+        </div>
+        <label>每周运动日</label>
+        <div class="weekday-row" id="bWeekdays">
+          <label class="wd"><input type="checkbox" value="1" checked>一</label>
+          <label class="wd"><input type="checkbox" value="2">二</label>
+          <label class="wd"><input type="checkbox" value="3" checked>三</label>
+          <label class="wd"><input type="checkbox" value="4">四</label>
+          <label class="wd"><input type="checkbox" value="5" checked>五</label>
+          <label class="wd"><input type="checkbox" value="6">六</label>
+          <label class="wd"><input type="checkbox" value="0">日</label>
+        </div>
+        <div class="grid2">
+          <label>时间窗开始
+            <input id="bTimeStart" type="time" value="07:00">
+          </label>
+          <label>时间窗结束
+            <input id="bTimeEnd" type="time" value="08:30">
+          </label>
+        </div>
+        <div class="grid2">
+          <label>距离下限（km）
+            <input id="bDistMin" type="number" value="3" min="0.1" step="0.1">
+          </label>
+          <label>距离上限（km）
+            <input id="bDistMax" type="number" value="5" min="0.1" step="0.1">
+          </label>
+        </div>
+        <div class="grid2">
+          <label>基准配速 <span class="hint" title="格式 分:秒 / 公里，如 6:00 表示每公里 6 分钟">?</span>
+            <input id="bPace" type="text" value="6:00" placeholder="6:00">
+          </label>
+          <label>配速抖动 ±%
+            <input id="bJitter" type="number" value="5" min="0" max="30" step="1">
+          </label>
+        </div>
+        <label>批量随机种子
+          <span class="seed-row">
+            <input id="bSeed" type="number" value="7" min="0" step="1">
+            <button id="bSeedDice" class="mini-btn" type="button" title="随机换一个种子">🎲</button>
+          </span>
+        </label>
+      </div>
+    </details>
+
+  </aside>
+
+  <!-- ============ 右侧预览区 ============ -->
+  <section class="preview">
+
+    <div id="previewSingle">
+      <div class="summary-grid" id="summaryGrid"></div>
+      <div class="chart-card">
+        <h3>轨迹地图 <span class="hint" title="绿色圆点为起点，灰色圆点为终点；在图上拖拽可移动路线位置，滚轮或 ＋/－ 缩放，⌂ 复位视图">?</span></h3>
+        <label class="map-toggle"><input type="checkbox" id="satToggle"> 卫星底图 <span class="hint" title="开启后预览区从高德地图加载卫星影像（需联网），可把路线精确拖到真实田径场跑道上；不开启则完全离线">?</span></label>
+        <div class="map-wrap">
+          <svg id="trackSvg" viewBox="0 0 400 260" preserveAspectRatio="xMidYMid meet"></svg>
+          <div class="map-tools">
+            <button id="mapZoomIn" type="button" title="放大">＋</button>
+            <button id="mapZoomOut" type="button" title="缩小">－</button>
+            <button id="mapReset" type="button" title="复位视图">⌂</button>
+          </div>
+        </div>
+      </div>
+      <div class="chart-card">
+        <h3>配速曲线 <span class="hint" title="按住任一分段上下拖动即可调节该段配速（越靠上越快），平均配速保持不变；也可展开下方「自定义」分段编辑器精确输入">?</span></h3>
+        <svg id="paceSvg" viewBox="0 0 400 150" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+    </div>
+
+    <div id="previewBatch" hidden>
+      <div class="summary-grid" id="batchSummary"></div>
+      <div class="chart-card table-card">
+        <h3>记录列表</h3>
+        <div class="table-wrap">
+          <table id="batchTable">
+            <thead><tr><th>日期</th><th>开始时间</th><th>距离</th><th>时长</th><th>平均配速</th><th>卡路里</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnExportSingle" class="primary" type="button">下载 .tcx</button>
+      <button id="btnBatchGen" class="primary" type="button" hidden>生成预览列表</button>
+      <button id="btnExportZip" class="primary" type="button" hidden disabled>下载 .zip</button>
+    </div>
+    <p class="io-note">在 Keep App 中：运动 → 数据同步 → 运动数据文件导入，选择导出的 .tcx 或 .zip 即可。</p>
+  </section>
+</main>
+
+<div id="toast" hidden></div>
+<script src="app.js"></script>
+</body>
+</html>
